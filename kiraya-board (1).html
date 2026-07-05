@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Kiraya Board</title>
+<link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<style>
+  :root{
+    --wall: #EDE6D6;
+    --wall-dark: #E1D7BF;
+    --ink: #201A14;
+    --signboard: #F2C230;
+    --signboard-dark: #D9A91F;
+    --rust: #B33F2E;
+    --paan-green: #3D5C3A;
+    --grey: #8A8378;
+    --paper: #FBF7EE;
+    --shadow: rgba(32,26,20,0.25);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 38px, rgba(0,0,0,0.02) 39px),
+      var(--wall);
+    font-family:'Work Sans', sans-serif;
+    color:var(--ink);
+  }
+  .wrap{max-width:1000px;margin:0 auto;padding:28px 20px 80px;}
+
+  /* HERO — hanging signboard */
+  .hero{
+    position:relative;
+    text-align:center;
+    padding:38px 20px 30px;
+    margin-bottom:36px;
+  }
+  .chain{
+    width:2px;height:26px;background:repeating-linear-gradient(0deg,#6b675e 0 4px, transparent 4px 8px);
+    margin:0 auto;
+  }
+  .board{
+    display:inline-block;
+    background:var(--signboard);
+    border:5px solid var(--ink);
+    border-radius:4px;
+    padding:22px 40px 26px;
+    transform:rotate(-1.2deg);
+    box-shadow:8px 10px 0 var(--shadow);
+    position:relative;
+  }
+  .board:before, .board:after{
+    content:'';
+    position:absolute; top:-13px;
+    width:14px;height:14px;border-radius:50%;
+    background:#5b5750; box-shadow:inset 0 2px 2px rgba(0,0,0,.4);
+  }
+  .board:before{left:24px;} .board:after{right:24px;}
+  .board h1{
+    font-family:'Alfa Slab One', serif;
+    font-size:clamp(2.2rem, 6vw, 3.4rem);
+    margin:0;
+    color:var(--ink);
+    letter-spacing:1px;
+    text-shadow:2px 2px 0 rgba(255,255,255,0.25);
+  }
+  .board .sub{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.95rem;
+    font-weight:600;
+    letter-spacing:2px;
+    margin-top:6px;
+    color:#4a3a10;
+  }
+  .stamp{
+    position:absolute; top:-18px; right:-22px;
+    border:3px solid var(--rust); color:var(--rust);
+    border-radius:50%; width:78px;height:78px;
+    display:flex;align-items:center;justify-content:center;
+    text-align:center; font-family:'Alfa Slab One',serif;
+    font-size:0.72rem; line-height:1.1; transform:rotate(12deg);
+    background:rgba(251,247,238,0.85);
+  }
+
+  .tagline{margin-top:20px;color:var(--ink);opacity:0.75;font-size:1.02rem;max-width:520px;margin-left:auto;margin-right:auto;}
+
+  /* CONTROLS */
+  .controls{
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:center;
+    margin-bottom:30px;
+  }
+  input, select{
+    font-family:'Work Sans',sans-serif;
+    font-size:0.95rem;
+    padding:10px 14px;
+    border:2px solid var(--ink);
+    border-radius:3px;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  #search{min-width:220px;flex:1;max-width:340px;}
+  button{
+    font-family:'Work Sans',sans-serif;
+    font-weight:700;
+    font-size:0.95rem;
+    border:2px solid var(--ink);
+    border-radius:3px;
+    padding:10px 18px;
+    cursor:pointer;
+    background:var(--ink);
+    color:var(--paper);
+    transition:transform .12s ease;
+  }
+  button:hover{transform:translateY(-2px);}
+  button.secondary{background:var(--paper);color:var(--ink);}
+  .post-cta{
+    background:var(--rust); color:var(--paper); border-color:var(--ink);
+    font-family:'IBM Plex Mono',monospace; letter-spacing:0.5px;
+  }
+
+  /* GRID */
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
+    gap:26px;
+  }
+  .card{
+    background:var(--paper);
+    border:1px solid rgba(32,26,20,0.15);
+    border-radius:2px;
+    padding:18px 18px 16px;
+    position:relative;
+    box-shadow:4px 5px 0 rgba(32,26,20,0.12);
+  }
+  .card:nth-child(3n+1){transform:rotate(-0.6deg);}
+  .card:nth-child(3n+2){transform:rotate(0.5deg);}
+  .card:nth-child(3n+3){transform:rotate(-0.3deg);}
+  .pin{
+    position:absolute; top:-8px; left:50%; transform:translateX(-50%);
+    width:14px;height:14px;border-radius:50%;
+    background:var(--rust); box-shadow:0 2px 3px rgba(0,0,0,.3);
+  }
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .type-badge{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:0.7rem; font-weight:600; letter-spacing:1px;
+    padding:3px 8px; border-radius:2px; text-transform:uppercase;
+  }
+  .type-badge.room{background:#DCE6DA;color:var(--paan-green);}
+  .type-badge.shop{background:#F5DFC7;color:#8a5a1f;}
+  .card h3{font-family:'Alfa Slab One',serif;font-size:1.15rem;margin:10px 0 4px;line-height:1.25;}
+  .loc{font-size:0.85rem;color:var(--grey);margin-bottom:8px;}
+  .price{
+    font-family:'IBM Plex Mono',monospace;font-weight:600;
+    font-size:1.15rem;color:var(--rust);margin:8px 0;
+  }
+  .desc{font-size:0.88rem;color:#4b453d;margin-bottom:10px;min-height:38px;}
+  .card-foot{display:flex;justify-content:space-between;align-items:center;border-top:1px dashed rgba(32,26,20,0.3);padding-top:10px;}
+  .contact{font-family:'IBM Plex Mono',monospace;font-size:0.82rem;font-weight:600;}
+  .avail{
+    font-family:'Alfa Slab One',serif; font-size:0.68rem; letter-spacing:1px;
+    color:var(--paan-green); border:2px solid var(--paan-green);
+    border-radius:50%; width:44px;height:44px; display:flex;align-items:center;justify-content:center;
+    text-align:center; transform:rotate(-10deg); line-height:1;
+  }
+
+  .empty{text-align:center;padding:50px 20px;color:var(--grey);font-family:'IBM Plex Mono',monospace;}
+
+  /* MODAL */
+  .overlay{
+    position:fixed;inset:0;background:rgba(20,16,12,0.55);
+    display:none;align-items:center;justify-content:center;padding:20px;z-index:50;
+  }
+  .overlay.show{display:flex;}
+  .modal{
+    background:var(--paper);border:4px solid var(--ink);border-radius:4px;
+    max-width:460px;width:100%;padding:26px 24px;max-height:88vh;overflow-y:auto;
+    box-shadow:10px 12px 0 var(--shadow);
+  }
+  .modal h2{font-family:'Alfa Slab One',serif;margin-top:0;font-size:1.5rem;}
+  .modal label{display:block;font-size:0.82rem;font-weight:600;margin:12px 0 5px;text-transform:uppercase;letter-spacing:0.5px;color:var(--grey);}
+  .modal input, .modal select, .modal textarea{width:100%;font-size:0.95rem;}
+  .modal textarea{font-family:'Work Sans',sans-serif;padding:10px 14px;border:2px solid var(--ink);border-radius:3px;background:var(--paper);resize:vertical;min-height:60px;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .modal-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end;}
+  .fee-box{
+    background:#FBF0D8;border:2px dashed var(--signboard-dark);border-radius:3px;
+    padding:12px 14px;margin-top:16px;font-family:'IBM Plex Mono',monospace;font-size:0.85rem;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .fee-amt{font-size:1.1rem;font-weight:700;color:var(--rust);}
+  .pay-step{text-align:center;padding:14px 4px;}
+  .pay-step .stampbig{
+    width:100px;height:100px;border-radius:50%;border:4px solid var(--paan-green);
+    color:var(--paan-green);display:flex;align-items:center;justify-content:center;
+    margin:14px auto;font-family:'Alfa Slab One',serif;font-size:0.95rem;transform:rotate(-8deg);
+  }
+  .note{font-size:0.78rem;color:var(--grey);margin-top:14px;line-height:1.4;}
+  .close-x{position:absolute;top:14px;right:16px;background:none;border:none;color:var(--ink);font-size:1.3rem;padding:0;}
+  .modal{position:relative;}
+  .spinner{width:26px;height:26px;border:3px solid var(--wall-dark);border-top-color:var(--rust);border-radius:50%;margin:10px auto;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="chain"></div>
+    <div class="board">
+      <div class="stamp">AVAILABLE NOW</div>
+      <h1>KIRAYA BOARD</h1>
+      <div class="sub">TO-LET · SHOPS &amp; ROOMS · GHAZIPUR</div>
+    </div>
+    <p class="tagline">Ghazipur's neighborhood noticeboard, online. Browse shops and rooms for rent across the city, or put up your own board for just ₹250.</p>
+  </div>
+
+  <div class="controls">
+    <input id="search" type="text" placeholder="Search by locality, e.g. Karim Nagar, Mahua Bagh, Nandganj...">
+    <select id="filterType">
+      <option value="all">All listings</option>
+      <option value="room">Rooms only</option>
+      <option value="shop">Shops only</option>
+    </select>
+    <button class="post-cta" onclick="openPostModal()">+ Put Up Your Board — ₹250</button>
+  </div>
+
+  <div id="grid" class="grid"></div>
+  <div id="emptyMsg" class="empty" style="display:none;">No boards up yet in this search. Be the first to post one.</div>
+</div>
+
+<!-- POST MODAL -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <button class="close-x" onclick="closeModal()">✕</button>
+
+    <div id="formStep">
+      <h2>Put Up Your Board</h2>
+      <label>What are you renting out?</label>
+      <select id="f_type">
+        <option value="room">Room</option>
+        <option value="shop">Shop</option>
+      </select>
+      <label>Title</label>
+      <input id="f_title" placeholder="e.g. Single room near market, or Corner shop on main road">
+      <label>Locality / Area (Ghazipur)</label>
+      <input id="f_loc" placeholder="e.g. Karim Nagar, Ghazipur">
+      <div class="row2">
+        <div>
+          <label>Monthly rent (₹)</label>
+          <input id="f_price" type="number" placeholder="4000">
+        </div>
+        <div>
+          <label>Contact number</label>
+          <input id="f_contact" placeholder="10-digit mobile">
+        </div>
+      </div>
+      <label>Details</label>
+      <textarea id="f_desc" placeholder="Size, floor, water/electricity, deposit, nearby landmarks..."></textarea>
+
+      <div class="fee-box">
+        <span>One-time posting fee</span>
+        <span class="fee-amt">₹250</span>
+      </div>
+      <p class="note">You'll be taken to a secure Razorpay payment window to pay ₹250. Your listing goes live right after payment is confirmed.</p>
+
+      <div class="modal-actions">
+        <button class="secondary" onclick="closeModal()">Cancel</button>
+        <button onclick="goToPay()">Continue to pay ₹250</button>
+      </div>
+    </div>
+
+    <div id="payStep" style="display:none;">
+      <h2>Pay ₹250 to post</h2>
+      <div class="pay-step" id="payLoading">
+        <div class="spinner"></div>
+        <p>Confirming payment...</p>
+      </div>
+      <div class="pay-step" id="paySuccess" style="display:none;">
+        <div class="stampbig">PAID<br>₹250</div>
+        <p>Payment confirmed. Your board is going up.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ======================================================================
+   CONFIG — fill these in with your own account details.
+   1. SUPABASE_URL and SUPABASE_KEY: from supabase.com → your project →
+      Settings → API → "Project URL" and "anon public" key.
+   2. RAZORPAY_KEY_ID: from dashboard.razorpay.com → Settings → API Keys →
+      "Key Id" (starts with rzp_live_ once your account is activated,
+      or rzp_test_ while testing).
+   ====================================================================== */
+const SUPABASE_URL = 'https://cncruykmqcckmgylmgwf.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_IbWaeroTrJkiFQ24GQJAJg_PaaCkqJK';
+const RAZORPAY_KEY_ID = 'YOUR_RAZORPAY_KEY_ID';
+/* ====================================================================== */
+
+let listings = [];
+let sb = null;
+try{
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}catch(e){
+  console.error('Supabase not configured yet', e);
+}
+
+const seed = [
+  {id:'s1', type:'room', title:'Single room, near bus stand', loc:'Karim Nagar, Ghazipur', price:3500, contact:'9876500001', description:'2nd floor, attached bathroom, water 24hrs. Students preferred.'},
+  {id:'s2', type:'shop', title:'10x12 shop on main road', loc:'Mahua Bagh, Ghazipur', price:9000, contact:'9876500002', description:'Good footfall, shutter + loft storage. Ideal for general store.'},
+  {id:'s3', type:'room', title:'2BHK for small family', loc:'Nandganj, Ghazipur', price:6000, contact:'9876500003', description:'Independent portion, small courtyard, near school.'},
+];
+
+async function loadListings(){
+  if(!SUPABASE_URL.startsWith('http')){
+    // Config not filled in yet — show sample listings only, warn in console.
+    console.warn('Supabase is not configured. Showing sample listings only.');
+    listings = seed;
+    render();
+    return;
+  }
+  try{
+    const { data, error } = await sb
+      .from('listings')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if(error) throw error;
+    listings = (data && data.length) ? data : seed;
+  }catch(e){
+    console.error('Failed to load listings from Supabase', e);
+    listings = seed;
+  }
+  render();
+}
+
+async function saveListing(newListing){
+  if(!SUPABASE_URL.startsWith('http')){
+    alert('Storage is not configured yet, so this listing will not be saved permanently. See the setup instructions.');
+    listings.unshift(newListing);
+    return;
+  }
+  try{
+    const { error } = await sb.from('listings').insert([newListing]);
+    if(error) throw error;
+    listings.unshift(newListing);
+  }catch(e){
+    console.error('Failed to save listing to Supabase', e);
+    alert('Something went wrong saving your listing. Please try again.');
+  }
+}
+
+function render(){
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const type = document.getElementById('filterType').value;
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('emptyMsg');
+  grid.innerHTML = '';
+
+  const filtered = listings.filter(l=>{
+    const matchesType = type === 'all' || l.type === type;
+    const matchesQ = !q || (l.title+' '+l.loc+' '+l.description).toLowerCase().includes(q);
+    return matchesType && matchesQ;
+  });
+
+  if(filtered.length === 0){
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  filtered.slice().reverse().forEach(l=>{
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="pin"></div>
+      <div class="card-top">
+        <span class="type-badge ${l.type}">${l.type === 'room' ? 'Room' : 'Shop'}</span>
+      </div>
+      <h3>${escapeHtml(l.title)}</h3>
+      <div class="loc">📍 ${escapeHtml(l.loc)}</div>
+      <div class="price">₹${Number(l.price).toLocaleString('en-IN')}/mo</div>
+      <div class="desc">${escapeHtml(l.description || '')}</div>
+      <div class="card-foot">
+        <span class="contact">☎ ${escapeHtml(l.contact)}</span>
+        <span class="avail">FOR<br>RENT</span>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function escapeHtml(s){
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+document.getElementById('search').addEventListener('input', render);
+document.getElementById('filterType').addEventListener('change', render);
+
+function openPostModal(){
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('formStep').style.display = 'block';
+  document.getElementById('payStep').style.display = 'none';
+}
+function closeModal(){
+  document.getElementById('overlay').classList.remove('show');
+}
+
+function goToPay(){
+  const title = document.getElementById('f_title').value.trim();
+  const loc = document.getElementById('f_loc').value.trim();
+  const price = document.getElementById('f_price').value.trim();
+  const contact = document.getElementById('f_contact').value.trim();
+
+  if(!title || !loc || !price || !contact){
+    alert('Please fill in title, locality, rent, and contact number.');
+    return;
+  }
+  if(!/^\d{10}$/.test(contact)){
+    alert('Please enter a valid 10-digit contact number.');
+    return;
+  }
+
+  if(!RAZORPAY_KEY_ID.startsWith('rzp_')){
+    alert('Payments are not set up yet on this site. See the setup instructions to connect Razorpay.');
+    return;
+  }
+
+  const pendingListing = {
+    id: 'l' + Date.now(),
+    type: document.getElementById('f_type').value,
+    title,
+    loc,
+    price: Number(price),
+    contact,
+    description: document.getElementById('f_desc').value.trim()
+  };
+
+  const rzp = new Razorpay({
+    key: RAZORPAY_KEY_ID,
+    amount: 25000, // ₹250 in paise
+    currency: 'INR',
+    name: 'Kiraya Board Ghazipur',
+    description: 'Listing fee: ' + title,
+    handler: async function(response){
+      // Payment succeeded — response.razorpay_payment_id confirms it.
+      document.getElementById('formStep').style.display = 'none';
+      document.getElementById('payStep').style.display = 'block';
+      document.getElementById('payLoading').style.display = 'none';
+      document.getElementById('paySuccess').style.display = 'block';
+
+      await saveListing(pendingListing);
+      render();
+
+      setTimeout(()=>{
+        closeModal();
+        document.getElementById('f_title').value='';
+        document.getElementById('f_loc').value='';
+        document.getElementById('f_price').value='';
+        document.getElementById('f_contact').value='';
+        document.getElementById('f_desc').value='';
+      }, 1600);
+    },
+    modal: {
+      ondismiss: function(){
+        // User closed the Razorpay window without paying — no listing saved.
+      }
+    },
+    prefill: { contact: contact },
+    theme: { color: '#B33F2E' }
+  });
+
+  rzp.open();
+}
+
+loadListings();
+</script>
+</body>
+</html>
